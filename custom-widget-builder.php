@@ -4,7 +4,7 @@
  * Plugin URI: https://example.com/custom-widget-builder
  * Description: A plugin to build and manage custom widgets.
  * Version: 1.2.0
- * Author: Aqsa
+ * Author: Aqsa Mumtaz
  * Author URI: https://example.com
  * License: GPL2
  */
