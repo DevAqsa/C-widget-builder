@@ -13,16 +13,16 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly.
 }
 
-// Define plugin constants.
+// Define plugin constants
 define( 'CWB_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CWB_WIDGETS_DIR', CWB_PLUGIN_DIR . 'dynamic-widgets/' );
 
-// Ensure the dynamic widgets directory exists.
+// Ensure the dynamic widgets directory exists
 if ( ! file_exists( CWB_WIDGETS_DIR ) ) {
     mkdir( CWB_WIDGETS_DIR, 0755, true );
 }
 
-// Register widgets dynamically.
+// Register widgets dynamically
 function cwb_register_widgets() {
     foreach ( glob( CWB_WIDGETS_DIR . '*.php' ) as $widget_file ) {
         include_once $widget_file;
@@ -34,7 +34,7 @@ function cwb_register_widgets() {
 }
 add_action( 'widgets_init', 'cwb_register_widgets' );
 
-// Add the admin page under Appearance.
+// Add the admin page under Appearance
 function cwb_add_admin_page() {
     add_theme_page(
         __( 'Custom Widgets', 'cwb' ),
@@ -46,7 +46,7 @@ function cwb_add_admin_page() {
 }
 add_action( 'admin_menu', 'cwb_add_admin_page' );
 
-// Render the admin page.
+// Render the admin page
 function cwb_render_admin_page() {
     if ( isset( $_POST['cwb_create_widget'] ) && check_admin_referer( 'cwb_create_widget_nonce' ) ) {
         $widget_name = sanitize_text_field( $_POST['widget_name'] );
@@ -68,14 +68,20 @@ class $class_name extends WP_Widget {
 
     public function widget( \$args, \$instance ) {
         echo \$args['before_widget'];
+        
+        // Display the widget title if set
+        if ( ! empty( \$instance['title'] ) ) {
+            echo \$args['before_title'] . apply_filters( 'widget_title', \$instance['title'] ) . \$args['after_title'];
+        }
 ";
 
         if ( $widget_type === 'Text' ) {
-            $widget_code .= "        echo '$widget_content';";
+            $widget_code .= "        echo wp_kses_post( \$instance['content'] ?? '$widget_content' );";
         } elseif ( $widget_type === 'HTML' ) {
-            $widget_code .= "        echo do_shortcode('$widget_content');";
+            $widget_code .= "        echo do_shortcode( \$instance['content'] ?? '$widget_content' );";
         } elseif ( $widget_type === 'Image' ) {
-            $widget_code .= "        echo '<img src=\"$widget_content\" alt=\"Widget Image\" />';";
+            $widget_code .= "        \$image_url = \$instance['image_url'] ?? '$widget_content';
+        echo '<img src=\"' . esc_url( \$image_url ) . '\" alt=\"' . esc_attr( \$instance['image_alt'] ?? '' ) . '\" />';";
         }
 
         $widget_code .= "
@@ -83,11 +89,68 @@ class $class_name extends WP_Widget {
     }
 
     public function form( \$instance ) {
-        echo '<p>' . __( 'No settings available for this widget.', 'cwb' ) . '</p>';
+        \$title = ! empty( \$instance['title'] ) ? \$instance['title'] : '';
+";
+
+        if ( $widget_type === 'Text' || $widget_type === 'HTML' ) {
+            $widget_code .= "        \$content = ! empty( \$instance['content'] ) ? \$instance['content'] : '$widget_content';
+        ?>
+        <p>
+            <label for=\"<?php echo esc_attr( \$this->get_field_id( 'title' ) ); ?>\"><?php _e( 'Title:', 'cwb' ); ?></label>
+            <input class=\"widefat\" id=\"<?php echo esc_attr( \$this->get_field_id( 'title' ) ); ?>\" 
+                   name=\"<?php echo esc_attr( \$this->get_field_name( 'title' ) ); ?>\" type=\"text\" 
+                   value=\"<?php echo esc_attr( \$title ); ?>\">
+        </p>
+        <p>
+            <label for=\"<?php echo esc_attr( \$this->get_field_id( 'content' ) ); ?>\"><?php _e( 'Content:', 'cwb' ); ?></label>
+            <textarea class=\"widefat\" id=\"<?php echo esc_attr( \$this->get_field_id( 'content' ) ); ?>\" 
+                      name=\"<?php echo esc_attr( \$this->get_field_name( 'content' ) ); ?>\" rows=\"5\"><?php echo esc_textarea( \$content ); ?></textarea>
+        </p>
+        <?php";
+        } elseif ( $widget_type === 'Image' ) {
+            $widget_code .= "        \$image_url = ! empty( \$instance['image_url'] ) ? \$instance['image_url'] : '$widget_content';
+        \$image_alt = ! empty( \$instance['image_alt'] ) ? \$instance['image_alt'] : '';
+        ?>
+        <p>
+            <label for=\"<?php echo esc_attr( \$this->get_field_id( 'title' ) ); ?>\"><?php _e( 'Title:', 'cwb' ); ?></label>
+            <input class=\"widefat\" id=\"<?php echo esc_attr( \$this->get_field_id( 'title' ) ); ?>\" 
+                   name=\"<?php echo esc_attr( \$this->get_field_name( 'title' ) ); ?>\" type=\"text\" 
+                   value=\"<?php echo esc_attr( \$title ); ?>\">
+        </p>
+        <p>
+            <label for=\"<?php echo esc_attr( \$this->get_field_id( 'image_url' ) ); ?>\"><?php _e( 'Image URL:', 'cwb' ); ?></label>
+            <input class=\"widefat\" id=\"<?php echo esc_attr( \$this->get_field_id( 'image_url' ) ); ?>\" 
+                   name=\"<?php echo esc_attr( \$this->get_field_name( 'image_url' ) ); ?>\" type=\"text\" 
+                   value=\"<?php echo esc_url( \$image_url ); ?>\">
+        </p>
+        <p>
+            <label for=\"<?php echo esc_attr( \$this->get_field_id( 'image_alt' ) ); ?>\"><?php _e( 'Image Alt Text:', 'cwb' ); ?></label>
+            <input class=\"widefat\" id=\"<?php echo esc_attr( \$this->get_field_id( 'image_alt' ) ); ?>\" 
+                   name=\"<?php echo esc_attr( \$this->get_field_name( 'image_alt' ) ); ?>\" type=\"text\" 
+                   value=\"<?php echo esc_attr( \$image_alt ); ?>\">
+        </p>
+        <?php";
+        }
+
+        $widget_code .= "
     }
 
     public function update( \$new_instance, \$old_instance ) {
-        return \$new_instance;
+        \$instance = array();
+        \$instance['title'] = ( ! empty( \$new_instance['title'] ) ) ? sanitize_text_field( \$new_instance['title'] ) : '';
+";
+
+        if ( $widget_type === 'Text' ) {
+            $widget_code .= "        \$instance['content'] = ( ! empty( \$new_instance['content'] ) ) ? sanitize_textarea_field( \$new_instance['content'] ) : '';";
+        } elseif ( $widget_type === 'HTML' ) {
+            $widget_code .= "        \$instance['content'] = ( ! empty( \$new_instance['content'] ) ) ? wp_kses_post( \$new_instance['content'] ) : '';";
+        } elseif ( $widget_type === 'Image' ) {
+            $widget_code .= "        \$instance['image_url'] = ( ! empty( \$new_instance['image_url'] ) ) ? esc_url_raw( \$new_instance['image_url'] ) : '';
+        \$instance['image_alt'] = ( ! empty( \$new_instance['image_alt'] ) ) ? sanitize_text_field( \$new_instance['image_alt'] ) : '';";
+        }
+
+        $widget_code .= "
+        return \$instance;
     }
 }
 ";
@@ -132,7 +195,7 @@ class $class_name extends WP_Widget {
     <?php
 }
 
-// Display all widgets at the bottom of the page.
+// Display all widgets at the bottom of the page
 function cwb_display_widgets() {
     if ( ! is_admin() ) {
         echo '<div class="cwb-bottom-widgets">';
@@ -142,7 +205,7 @@ function cwb_display_widgets() {
 }
 add_action( 'wp_footer', 'cwb_display_widgets' );
 
-// Register a custom sidebar for displaying widgets.
+// Register a custom sidebar for displaying widgets
 function cwb_register_sidebar() {
     register_sidebar( array(
         'name'          => __( 'Custom Widgets', 'cwb' ),
@@ -154,5 +217,3 @@ function cwb_register_sidebar() {
     ) );
 }
 add_action( 'widgets_init', 'cwb_register_sidebar' );
-
-
